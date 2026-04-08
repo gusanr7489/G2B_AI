@@ -116,11 +116,60 @@ def parse_bid_item(item: dict) -> dict:
     }
 
 
-async def save_bids_to_db(db, items: list[dict]) -> int:
+def extract_attachments_from_raw(raw_data: dict | str | None) -> list[dict]:
+    """raw_data(나라장터 API 원본)에서 첨부파일 URL/파일명 추출.
+    ntceSpecDocUrl1~10, ntceSpecFileNm1~10 필드 사용."""
+    if not raw_data:
+        return []
+    if isinstance(raw_data, str):
+        raw_data = json.loads(raw_data)
+
+    result = []
+    for i in range(1, 11):
+        url = raw_data.get(f"ntceSpecDocUrl{i}", "")
+        name = raw_data.get(f"ntceSpecFileNm{i}", "")
+        if not url or not name:
+            continue
+        ext = name.rsplit(".", 1)[-1].lower() if "." in name else "unknown"
+        result.append({
+            "file_name": name,
+            "file_url": url,
+            "file_type": ext,
+        })
+    return result
+
+
+async def save_attachments_to_db(db, bid_id: int, attachments: list[dict]) -> int:
+    """첨부파일 정보를 DB에 저장 (중복 무시). 저장된 건수 반환."""
+    saved = 0
+    for att in attachments:
+        try:
+            await db.execute(
+                """
+                INSERT INTO bid_attachments (bid_id, file_name, file_type, file_url)
+                VALUES ($1, $2, $3, $4)
+                ON CONFLICT (bid_id, file_name) DO NOTHING
+                """,
+                bid_id,
+                att["file_name"],
+                att["file_type"],
+                att["file_url"],
+            )
+            saved += 1
+        except Exception as e:
+            logger.warning(f"첨부파일 저장 실패 ({att['file_name']}): {e}")
+    return saved
+
+
+async def save_bids_to_db(db, items: list[dict], filter_it: bool = True) -> int:
     """파싱된 공고 목록을 DB에 저장 (중복 무시). 저장된 건수 반환."""
+    from services.scheduler_service import is_it_consulting_bid
+
     saved = 0
     for item in items:
         parsed = parse_bid_item(item)
+        if filter_it and not is_it_consulting_bid(parsed["bid_ntce_nm"]):
+            continue
         try:
             await db.execute(
                 """

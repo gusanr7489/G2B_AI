@@ -1,5 +1,5 @@
 import json
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 
 from database import get_db
 from dependencies import get_current_user
@@ -11,6 +11,7 @@ from schemas.bid import (
     BidSummary,
 )
 from services.g2b_service import parse_bid_item, save_bids_to_db, search_bids
+from services.collect_pipeline import run_batch_collect, run_collect_pipeline
 
 router = APIRouter()
 
@@ -125,20 +126,32 @@ async def search_g2b(
     }
 
 
-@router.post("/{bid_id}/collect")
-async def collect_bid(
-    bid_id: int,
+@router.post("/collect-all")
+async def collect_all_bids(
+    background_tasks: BackgroundTasks,
     user=Depends(get_current_user),
     db=Depends(get_db),
 ):
-    """특정 공고의 첨부파일 수집 트리거 (Phase 3에서 HWP 변환 연결)"""
+    """IT 컨설팅 공고 일괄 수집 (최근 24시간)"""
+    background_tasks.add_task(run_batch_collect, db)
+    return {"message": "IT 컨설팅 공고 일괄 수집을 시작합니다"}
+
+
+@router.post("/{bid_id}/collect")
+async def collect_bid(
+    bid_id: int,
+    background_tasks: BackgroundTasks,
+    user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """특정 공고의 첨부파일 수집 → HWP 변환 → AI 분석"""
     row = await db.fetchrow("SELECT id, status FROM bids WHERE id = $1", bid_id)
     if not row:
         raise HTTPException(status_code=404, detail="공고를 찾을 수 없습니다")
 
-    # Phase 3에서 HWP 변환 파이프라인 연결 예정
     await db.execute(
         "UPDATE bids SET status = 'processing' WHERE id = $1", bid_id
     )
+    background_tasks.add_task(run_collect_pipeline, bid_id, db)
 
-    return {"message": "수집 시작 (HWP 변환은 Phase 3에서 연결)", "bid_id": bid_id}
+    return {"message": "첨부파일 수집 및 변환을 시작합니다", "bid_id": bid_id}

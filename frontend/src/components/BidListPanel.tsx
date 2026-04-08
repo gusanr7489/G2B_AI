@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Table, Input, Tag, Space, Button, App } from "antd";
-import { SearchOutlined, RightOutlined } from "@ant-design/icons";
+import { SearchOutlined, RightOutlined, SyncOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import { bidsApi, type BidSummary } from "../api/bids";
 
@@ -15,6 +15,16 @@ export default function BidListPanel({ onSelect, onMoveToTarget }: Props) {
   const [keyword, setKeyword] = useState("");
   const [searchText, setSearchText] = useState("");
   const { message } = App.useApp();
+  const queryClient = useQueryClient();
+
+  const collectMutation = useMutation({
+    mutationFn: () => bidsApi.collectAll(),
+    onSuccess: (res) => {
+      message.success(res.data.message);
+      setTimeout(() => queryClient.invalidateQueries({ queryKey: ["bids"] }), 3000);
+    },
+    onError: () => message.error("수집 요청 실패"),
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ["bids", page, keyword],
@@ -46,9 +56,26 @@ export default function BidListPanel({ onSelect, onMoveToTarget }: Props) {
 
   const statusColor: Record<string, string> = {
     new: "blue",
-    processing: "orange",
+    collecting: "cyan",
+    converting: "orange",
+    analyzing: "purple",
+    analyzed: "green",
     completed: "green",
+    no_file: "default",
     failed: "red",
+    analysis_failed: "red",
+  };
+
+  const statusLabel: Record<string, string> = {
+    new: "신규",
+    collecting: "수집중",
+    converting: "변환중",
+    analyzing: "분석중",
+    analyzed: "분석완료",
+    completed: "완료",
+    no_file: "첨부없음",
+    failed: "실패",
+    analysis_failed: "분석실패",
   };
 
   const columns: ColumnsType<BidSummary> = [
@@ -83,7 +110,7 @@ export default function BidListPanel({ onSelect, onMoveToTarget }: Props) {
       title: "상태",
       dataIndex: "status",
       width: 70,
-      render: (s: string) => <Tag color={statusColor[s] || "default"}>{s}</Tag>,
+      render: (s: string) => <Tag color={statusColor[s] || "default"}>{statusLabel[s] || s}</Tag>,
     },
     {
       title: "",
@@ -116,6 +143,14 @@ export default function BidListPanel({ onSelect, onMoveToTarget }: Props) {
           style={{ width: 250 }}
         />
         <Button onClick={handleSearch}>검색</Button>
+        <Button
+          type="primary"
+          icon={<SyncOutlined />}
+          onClick={() => collectMutation.mutate()}
+          loading={collectMutation.isPending}
+        >
+          공고 수집
+        </Button>
       </Space>
       <Table
         columns={columns}

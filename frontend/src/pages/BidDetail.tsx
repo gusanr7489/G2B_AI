@@ -11,7 +11,7 @@ import {
   App,
   Space,
 } from "antd";
-import { ArrowLeftOutlined, RobotOutlined, FileTextOutlined } from "@ant-design/icons";
+import { ArrowLeftOutlined, RobotOutlined, FileTextOutlined, CloudDownloadOutlined } from "@ant-design/icons";
 import { bidsApi } from "../api/bids";
 import { analysesApi, type Analysis, type Outline } from "../api/analyses";
 import AnalysisView from "../components/AnalysisView";
@@ -57,6 +57,17 @@ export default function BidDetail() {
     select: (res) => res.data,
     enabled: !!bidId,
     retry: false,
+  });
+
+  const collectMutation = useMutation({
+    mutationFn: () => bidsApi.collect(bidId),
+    onSuccess: () => {
+      message.success("첨부파일 수집 및 변환을 시작했습니다");
+      setTimeout(() => {
+        refetchAnalysis();
+      }, 10000);
+    },
+    onError: () => message.error("수집 요청 실패"),
   });
 
   const analyzeMutation = useMutation({
@@ -177,12 +188,29 @@ export default function BidDetail() {
           {bid.bid_ntce_no}-{bid.bid_ntce_ord}
         </Descriptions.Item>
         <Descriptions.Item label="상태">
-          <Tag>{bid.status}</Tag>
+          <Tag color={{
+            new: "blue", collecting: "cyan", converting: "orange",
+            analyzing: "purple", analyzed: "green", completed: "green",
+            no_file: "default", failed: "red", analysis_failed: "red",
+          }[bid.status] || "default"}>
+            {{ new: "신규", collecting: "수집중", converting: "변환중",
+               analyzing: "분석중", analyzed: "분석완료", completed: "완료",
+               no_file: "첨부없음", failed: "실패", analysis_failed: "분석실패",
+            }[bid.status] || bid.status}
+          </Tag>
         </Descriptions.Item>
       </Descriptions>
 
       {/* 액션 버튼 */}
       <Space style={{ marginBottom: 24 }}>
+        <Button
+          icon={<CloudDownloadOutlined />}
+          onClick={() => collectMutation.mutate()}
+          loading={collectMutation.isPending}
+          disabled={bid.status === "processing" || bid.status === "completed"}
+        >
+          첨부파일 수집
+        </Button>
         <Button
           type="primary"
           icon={<RobotOutlined />}

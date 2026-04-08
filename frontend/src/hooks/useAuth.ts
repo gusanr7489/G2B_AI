@@ -31,8 +31,9 @@ export function useAuth() {
     async (data: LoginRequest) => {
       const res = await authApi.login(data);
       localStorage.setItem("access_token", res.data.access_token);
-      await fetchUser();
-      navigate("/dashboard");
+      const meRes = await authApi.getMe();
+      setUser(meRes.data);
+      navigate(meRes.data.role === "admin" ? "/ceo" : "/dashboard");
     },
     [fetchUser, navigate],
   );

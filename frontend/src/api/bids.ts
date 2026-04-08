@@ -42,4 +42,6 @@ export const bidsApi = {
     ),
 
   collect: (id: number) => client.post(`/bids/${id}/collect`),
+
+  collectAll: () => client.post<{ message: string }>("/bids/collect-all"),
 };
