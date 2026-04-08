@@ -1,0 +1,26 @@
+# Web Framework
+fastapi==0.115.12
+uvicorn[standard]==0.34.2
+
+# Database
+asyncpg==0.30.0
+
+# HTTP Client
+httpx==0.28.1
+
+# Authentication
+python-jose[cryptography]==3.4.0
+passlib[bcrypt]==1.7.4
+
+# Scheduler
+apscheduler==3.11.0
+
+# Config
+pydantic-settings==2.9.1
+python-dotenv==1.1.0
+
+# AI
+google-genai==1.14.0
+
+# Utilities
+python-multipart==0.0.20

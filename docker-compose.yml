@@ -1,0 +1,20 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:15
+    container_name: g2b_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: g2b_ai
+      POSTGRES_USER: g2b_user
+      POSTGRES_PASSWORD: g2b_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/models/tables.sql:/docker-entrypoint-initdb.d/01_tables.sql
+      - ./backend/models/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql
+
+volumes:
+  pgdata:
