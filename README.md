@@ -36,6 +36,4 @@ npm install
 npm run dev
 ```
 
-## 팀원
 
-- gusanr7489
