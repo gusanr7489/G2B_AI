@@ -10,8 +10,9 @@ export interface BidSummary {
   bid_close_dt: string | null;
   asign_bdgt_amt: number | null;
   presmpt_prce: number | null;
-  status: string;
   created_at: string;
+  display_status: string;
+  analysis_status: string | null;
 }
 
 export interface BidListResponse {
@@ -30,8 +31,16 @@ export interface BidSearchParams {
 }
 
 export const bidsApi = {
-  list: (params: { page?: number; size?: number; keyword?: string; status?: string }) =>
-    client.get<BidListResponse>("/bids", { params }),
+  list: (params: {
+    page?: number;
+    size?: number;
+    keyword?: string;
+    org?: string;
+    analysis_status?: string;
+    hide_expired?: boolean;
+    min_price?: number;
+    max_price?: number;
+  }) => client.get<BidListResponse>("/bids", { params }),
 
   detail: (id: number) => client.get(`/bids/${id}`),
 
