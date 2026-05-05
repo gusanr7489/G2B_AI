@@ -27,3 +27,16 @@ Thumbs.db
 # Temp
 *.tmp
 *.log
+
+# Screenshots (작업 중 캡처)
+/*.png
+/*.jpg
+/*.jpeg
+
+# MCP / Playwright
+.mcp.json
+.playwright-mcp/
+
+# 실험용 프롬프트 결과
+backend/scripts/_*.txt
+backend/scripts/_*.md
