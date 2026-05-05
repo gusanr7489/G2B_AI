@@ -16,7 +16,9 @@ export interface Target {
   bid_ntce_nm: string | null;
   dminstt_nm: string | null;
   bid_close_dt: string | null;
+  presmpt_prce: number | null;
   risk_level: string | null;
+  analysis_status: string | null;
 }
 
 export interface TargetUpdate {

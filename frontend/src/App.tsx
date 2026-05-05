@@ -5,8 +5,11 @@ import koKR from "antd/locale/ko_KR";
 
 import LoginPage from "./pages/LoginPage";
 import StaffDashboard from "./pages/StaffDashboard";
+import ActiveProjects from "./pages/ActiveProjects";
+import CompletedProjects from "./pages/CompletedProjects";
 import CeoDashboard from "./pages/CeoDashboard";
 import BidDetail from "./pages/BidDetail";
+import AppShell from "./components/AppShell";
 import { useAuth } from "./hooks/useAuth";
 
 const queryClient = new QueryClient({
@@ -15,20 +18,11 @@ const queryClient = new QueryClient({
   },
 });
 
-function RoleGuard({ role, children }: { role: "admin" | "staff"; children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-
-  if (loading) return <Spin style={{ margin: "100px auto", display: "block" }} />;
-  if (!user) return <Navigate to="/login" replace />;
-  if (role === "admin" && user.role !== "admin") return <Navigate to="/dashboard" replace />;
-  if (role === "staff" && user.role === "admin") return <Navigate to="/ceo" replace />;
-  return <>{children}</>;
-}
-
-function AuthGuard({ children }: { children: React.ReactNode }) {
+function AdminOnly({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return <Spin style={{ margin: "100px auto", display: "block" }} />;
   if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== "admin") return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }
 
@@ -36,9 +30,13 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/dashboard" element={<RoleGuard role="staff"><StaffDashboard /></RoleGuard>} />
-      <Route path="/ceo" element={<RoleGuard role="admin"><CeoDashboard /></RoleGuard>} />
-      <Route path="/bids/:id" element={<AuthGuard><BidDetail /></AuthGuard>} />
+      <Route element={<AppShell />}>
+        <Route path="/dashboard" element={<StaffDashboard />} />
+        <Route path="/projects/active" element={<ActiveProjects />} />
+        <Route path="/projects/completed" element={<CompletedProjects />} />
+        <Route path="/bids/:id" element={<BidDetail />} />
+        <Route path="/ceo" element={<AdminOnly><CeoDashboard /></AdminOnly>} />
+      </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );

@@ -33,9 +33,9 @@ export function useAuth() {
       localStorage.setItem("access_token", res.data.access_token);
       const meRes = await authApi.getMe();
       setUser(meRes.data);
-      navigate(meRes.data.role === "admin" ? "/ceo" : "/dashboard");
+      navigate("/dashboard");
     },
-    [fetchUser, navigate],
+    [navigate],
   );
 
   const logout = useCallback(() => {

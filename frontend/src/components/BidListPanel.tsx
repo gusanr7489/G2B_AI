@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Table, Input, Tag, Space, Button, App } from "antd";
-import { SearchOutlined, RightOutlined, SyncOutlined } from "@ant-design/icons";
+import { Table, Input, Tag, Space, Button, App, Select, Switch, InputNumber, Row, Col } from "antd";
+import { SearchOutlined, RightOutlined, SyncOutlined, FilterOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import { bidsApi, type BidSummary } from "../api/bids";
 
@@ -11,11 +12,31 @@ interface Props {
 }
 
 export default function BidListPanel({ onSelect, onMoveToTarget }: Props) {
-  const [page, setPage] = useState(1);
-  const [keyword, setKeyword] = useState("");
-  const [searchText, setSearchText] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [page, setPage] = useState(() => Number(searchParams.get("page")) || 1);
+  const [keyword, setKeyword] = useState(() => searchParams.get("q") || "");
+  const [searchText, setSearchText] = useState(() => searchParams.get("q") || "");
+  const [org, setOrg] = useState(() => searchParams.get("org") || "");
+  const [orgText, setOrgText] = useState(() => searchParams.get("org") || "");
+  const [analysisStatus, setAnalysisStatus] = useState(() => searchParams.get("status") || "");
+  const [hideExpired, setHideExpired] = useState(() => searchParams.get("hide_expired") === "true");
+  const [showFilters, setShowFilters] = useState(false);
+  const [minPrice, setMinPrice] = useState<number>(0);
+  const [maxPrice, setMaxPrice] = useState<number>(0);
+
   const { message } = App.useApp();
   const queryClient = useQueryClient();
+
+  // URL 쿼리 파라미터에 검색 상태 동기화
+  useEffect(() => {
+    const params: Record<string, string> = {};
+    if (keyword) params.q = keyword;
+    if (org) params.org = org;
+    if (analysisStatus) params.status = analysisStatus;
+    if (hideExpired) params.hide_expired = "true";
+    if (page > 1) params.page = String(page);
+    setSearchParams(params, { replace: true });
+  }, [keyword, org, analysisStatus, hideExpired, page]);
 
   const collectMutation = useMutation({
     mutationFn: () => bidsApi.collectAll(),
@@ -27,13 +48,29 @@ export default function BidListPanel({ onSelect, onMoveToTarget }: Props) {
   });
 
   const { data, isLoading } = useQuery({
-    queryKey: ["bids", page, keyword],
-    queryFn: () => bidsApi.list({ page, size: 20, keyword }),
+    queryKey: ["bids", page, keyword, org, analysisStatus, hideExpired, minPrice, maxPrice],
+    queryFn: () =>
+      bidsApi.list({
+        page,
+        size: 20,
+        keyword,
+        org,
+        analysis_status: analysisStatus,
+        hide_expired: hideExpired,
+        min_price: minPrice,
+        max_price: maxPrice,
+      }),
     select: (res) => res.data,
+    // 검토중인 공고가 있으면 5초마다 자동 갱신해 상태 변화 반영
+    refetchInterval: (q) =>
+      q.state.data?.data.items.some((b: BidSummary) => b.analysis_status === "processing")
+        ? 5000
+        : false,
   });
 
   const handleSearch = () => {
     setKeyword(searchText);
+    setOrg(orgText);
     setPage(1);
   };
 
@@ -54,37 +91,37 @@ export default function BidListPanel({ onSelect, onMoveToTarget }: Props) {
     });
   };
 
-  const statusColor: Record<string, string> = {
-    new: "blue",
-    collecting: "cyan",
-    converting: "orange",
-    analyzing: "purple",
-    analyzed: "green",
-    completed: "green",
-    no_file: "default",
-    failed: "red",
-    analysis_failed: "red",
+  const formatShortDate = (dt: string | null) => {
+    if (!dt) return "-";
+    return new Date(dt).toLocaleDateString("ko-KR", {
+      month: "2-digit",
+      day: "2-digit",
+    });
   };
 
-  const statusLabel: Record<string, string> = {
-    new: "신규",
-    collecting: "수집중",
-    converting: "변환중",
-    analyzing: "분석중",
-    analyzed: "분석완료",
-    completed: "완료",
-    no_file: "첨부없음",
-    failed: "실패",
-    analysis_failed: "분석실패",
+  const statusColor: Record<string, string> = {
+    분석완료: "green",
+    목차완료: "blue",
+    검토중: "processing",
+    분석실패: "red",
   };
 
   const columns: ColumnsType<BidSummary> = [
     {
       title: "공고명",
       dataIndex: "bid_ntce_nm",
-      ellipsis: true,
       render: (text, record) => (
-        <a onClick={() => onSelect?.(record)}>{text}</a>
+        <a
+          onClick={() => onSelect?.(record)}
+          style={{
+            whiteSpace: "normal",
+            wordBreak: "keep-all",
+            overflowWrap: "anywhere",
+            lineHeight: 1.5,
+          }}
+        >
+          {text}
+        </a>
       ),
     },
     {
@@ -95,26 +132,33 @@ export default function BidListPanel({ onSelect, onMoveToTarget }: Props) {
       render: (v, r) => v || r.ntce_instt_nm || "-",
     },
     {
+      title: "등록일",
+      dataIndex: "created_at",
+      width: 65,
+      render: formatShortDate,
+    },
+    {
       title: "마감일",
       dataIndex: "bid_close_dt",
       width: 110,
       render: formatDate,
     },
     {
-      title: "예산",
+      title: "추정가",
       dataIndex: "presmpt_prce",
-      width: 80,
+      width: 70,
       render: (v, r) => formatAmount(v ?? r.asign_bdgt_amt),
     },
     {
       title: "상태",
-      dataIndex: "status",
-      width: 70,
-      render: (s: string) => <Tag color={statusColor[s] || "default"}>{statusLabel[s] || s}</Tag>,
+      dataIndex: "display_status",
+      width: 75,
+      render: (s: string) =>
+        s ? <Tag color={statusColor[s] || "default"}>{s}</Tag> : null,
     },
     {
       title: "",
-      width: 40,
+      width: 36,
       render: (_, record) =>
         onMoveToTarget ? (
           <Button
@@ -133,18 +177,25 @@ export default function BidListPanel({ onSelect, onMoveToTarget }: Props) {
 
   return (
     <div>
-      <Space style={{ marginBottom: 16, width: "100%" }}>
+      <Space style={{ marginBottom: 12, width: "100%", flexWrap: "wrap" }}>
         <Input
           placeholder="공고명 검색"
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
           onPressEnter={handleSearch}
           prefix={<SearchOutlined />}
-          style={{ width: 250 }}
+          style={{ width: 200 }}
+          allowClear
         />
-        <Button onClick={handleSearch}>검색</Button>
+        <Button onClick={handleSearch} type="primary">검색</Button>
         <Button
-          type="primary"
+          icon={<FilterOutlined />}
+          onClick={() => setShowFilters(!showFilters)}
+          type={showFilters ? "default" : "text"}
+        >
+          필터
+        </Button>
+        <Button
           icon={<SyncOutlined />}
           onClick={() => collectMutation.mutate()}
           loading={collectMutation.isPending}
@@ -152,6 +203,65 @@ export default function BidListPanel({ onSelect, onMoveToTarget }: Props) {
           공고 수집
         </Button>
       </Space>
+
+      {showFilters && (
+        <div style={{ marginBottom: 12, padding: 12, background: "#fafafa", borderRadius: 8 }}>
+          <Row gutter={[12, 8]} align="middle">
+            <Col>
+              <Input
+                placeholder="수요기관"
+                value={orgText}
+                onChange={(e) => setOrgText(e.target.value)}
+                onPressEnter={handleSearch}
+                style={{ width: 140 }}
+                allowClear
+              />
+            </Col>
+            <Col>
+              <Select
+                placeholder="상태"
+                value={analysisStatus || undefined}
+                onChange={(v) => { setAnalysisStatus(v || ""); setPage(1); }}
+                allowClear
+                style={{ width: 120 }}
+                options={[
+                  { value: "analyzed", label: "분석완료" },
+                  { value: "unanalyzed", label: "미분석" },
+                  { value: "outline", label: "목차완료" },
+                ]}
+              />
+            </Col>
+            <Col>
+              <Space size={4}>
+                <InputNumber
+                  placeholder="최소 금액(만)"
+                  value={minPrice > 0 ? minPrice / 10000 : undefined}
+                  onChange={(v) => setMinPrice(v ? v * 10000 : 0)}
+                  style={{ width: 115 }}
+                />
+                <span>~</span>
+                <InputNumber
+                  placeholder="최대 금액(만)"
+                  value={maxPrice > 0 ? maxPrice / 10000 : undefined}
+                  onChange={(v) => setMaxPrice(v ? v * 10000 : 0)}
+                  style={{ width: 115 }}
+                />
+              </Space>
+            </Col>
+            <Col>
+              <Space size={4}>
+                <Switch
+                  size="small"
+                  checked={hideExpired}
+                  onChange={(v) => { setHideExpired(v); setPage(1); }}
+                />
+                <span style={{ fontSize: 13 }}>마감 공고 숨김</span>
+              </Space>
+            </Col>
+          </Row>
+        </div>
+      )}
+
       <Table
         columns={columns}
         dataSource={data?.items || []}
