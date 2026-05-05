@@ -29,8 +29,9 @@ class BidSummary(BaseModel):
     bid_close_dt: datetime | None
     asign_bdgt_amt: int | None
     presmpt_prce: int | None
-    status: str
     created_at: datetime
+    display_status: str = ""
+    analysis_status: str | None = None
 
 
 class BidDetail(BaseModel):

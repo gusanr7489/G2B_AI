@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS analyses (
     risk_level VARCHAR(20),
     raw_analysis JSONB,
     analysis_status VARCHAR(20) DEFAULT 'pending',
+    model_used VARCHAR(50),
     created_at TIMESTAMP DEFAULT NOW()
 );
 

@@ -40,19 +40,20 @@ async def create_target(
 
 @router.get("", response_model=list[TargetResponse])
 async def list_targets(
-    status: str = Query("", description="상태 필터"),
+    status: str = Query("", description="상태 필터 (콤마로 다중 가능)"),
     user=Depends(get_current_user),
     db=Depends(get_db),
 ):
     """대상 리스트 조회"""
     if status:
+        statuses = [s.strip() for s in status.split(",") if s.strip()]
         rows = await db.fetch(
             """
-            SELECT t.* FROM bid_targets t
-            WHERE t.status = $1
-            ORDER BY t.updated_at DESC
+            SELECT * FROM bid_targets
+            WHERE status = ANY($1::text[])
+            ORDER BY updated_at DESC
             """,
-            status,
+            statuses,
         )
     else:
         rows = await db.fetch(
@@ -126,11 +127,11 @@ async def delete_target(
 async def _enrich_target(target: dict, db) -> TargetResponse:
     """대상에 공고명, 기관, 마감일, 위험도, 담당자명 조인"""
     bid = await db.fetchrow(
-        "SELECT bid_ntce_nm, dminstt_nm, bid_close_dt FROM bids WHERE id = $1",
+        "SELECT bid_ntce_nm, dminstt_nm, bid_close_dt, presmpt_prce FROM bids WHERE id = $1",
         target["bid_id"],
     )
     analysis = await db.fetchrow(
-        "SELECT risk_level FROM analyses WHERE bid_id = $1 AND analysis_status = 'completed' ORDER BY created_at DESC LIMIT 1",
+        "SELECT analysis_status, risk_level FROM analyses WHERE bid_id = $1 ORDER BY created_at DESC LIMIT 1",
         target["bid_id"],
     )
     assignee = None
@@ -144,6 +145,8 @@ async def _enrich_target(target: dict, db) -> TargetResponse:
         bid_ntce_nm=bid["bid_ntce_nm"] if bid else None,
         dminstt_nm=bid["dminstt_nm"] if bid else None,
         bid_close_dt=bid["bid_close_dt"] if bid else None,
+        presmpt_prce=bid["presmpt_prce"] if bid else None,
         risk_level=analysis["risk_level"] if analysis else None,
+        analysis_status=analysis["analysis_status"] if analysis else None,
         assignee_name=assignee["name"] if assignee else None,
     )

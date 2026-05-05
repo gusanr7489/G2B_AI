@@ -37,4 +37,6 @@ class TargetResponse(BaseModel):
     bid_ntce_nm: str | None = None
     dminstt_nm: str | None = None
     bid_close_dt: datetime | None = None
+    presmpt_prce: int | None = None
     risk_level: str | None = None
+    analysis_status: str | None = None

@@ -74,7 +74,7 @@ def _extract_zip(zip_bytes: bytes) -> dict:
     return result
 
 
-async def download_and_convert(file_url: str) -> dict:
+async def download_and_convert(file_url: str, file_name: str = "") -> dict:
     """URL에서 파일 다운로드 → 확장자에 따라 변환 처리"""
     async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
         resp = await client.get(file_url)
@@ -82,14 +82,13 @@ async def download_and_convert(file_url: str) -> dict:
 
     file_bytes = resp.content
     content_type = resp.headers.get("content-type", "")
-    file_name = file_url.split("/")[-1].split("?")[0]
+    if not file_name:
+        file_name = file_url.split("/")[-1].split("?")[0]
 
-    # HWP 파일 → 리브레AI 변환
-    if file_name.lower().endswith(".hwp") or "hwp" in content_type.lower():
+    # HWP / PDF → 리브레AI API 변환
+    if file_name.lower().endswith((".hwp", ".pdf")) or any(
+        k in content_type.lower() for k in ("hwp", "pdf")
+    ):
         return await convert_hwp(file_bytes, file_name)
-
-    # PDF → 텍스트 추출 (기본: 빈 결과, Phase 5에서 고도화)
-    if file_name.lower().endswith(".pdf") or "pdf" in content_type.lower():
-        return {"html": "", "md": f"[PDF 파일: {file_name}]", "metadata": None}
 
     return {"html": "", "md": f"[지원하지 않는 형식: {file_name}]", "metadata": None}

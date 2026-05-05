@@ -21,7 +21,8 @@ class Settings(BaseSettings):
 
     # Google Gemini API
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.0-flash"
+    gemini_model: str = "gemini-3.1-pro-preview"
+    gemini_fallback_model: str = "gemini-2.5-pro"
 
     # CORS
     cors_origins: list[str] = ["http://localhost:5173"]
