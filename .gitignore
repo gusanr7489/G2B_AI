@@ -40,3 +40,6 @@ Thumbs.db
 # 실험용 프롬프트 결과
 backend/scripts/_*.txt
 backend/scripts/_*.md
+
+# 개인 작업 메모
+notes/
