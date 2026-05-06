@@ -195,7 +195,7 @@ async def run_convert(bid_id: int, db) -> None:
 async def run_batch_collect(db) -> dict:
     """IT 컨설팅 공고 수집만 수행 (변환/분석 X)"""
     now = datetime.now(KST)
-    bgn = now - timedelta(hours=24)
+    bgn = now - timedelta(days=7)
     bgn_str = bgn.strftime("%Y%m%d%H%M")
     end_str = now.strftime("%Y%m%d%H%M")
 
